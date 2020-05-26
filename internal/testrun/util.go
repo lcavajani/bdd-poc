@@ -7,7 +7,9 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"strconv"
 	"strings"
+	"time"
 
 	git "github.com/go-git/go-git/v5"
 )
@@ -70,6 +72,9 @@ func (t *TestRun) IRunInDirectory(command, workdir string) error {
 }
 
 func (t *TestRun) TheOutputContains(arg string) error {
+	//TODO: show output when debug enable, currently use to check output during dev
+	fmt.Println(string(t.CombinedOutput))
+
 	if !strings.Contains(fmt.Sprintf("%s", string(t.CombinedOutput)), arg) {
 		return errors.New("Output does not contain expected argument")
 	}
@@ -106,6 +111,36 @@ func (t *TestRun) TheOutputShoudMatchTheOutputTheCommand(command2 string) error 
 		return errors.New(string(cmd2Output))
 	}
 	return t.TheOutputContains(string(cmd2Output))
+}
+
+func WaitDuration(duration string) (err error) {
+	temp := strings.Split(duration, " ")
+	if len(temp) != 2 {
+		return fmt.Errorf("Sorry... you've mistaken the format of time input (it's <NUMBER><1*EMPTYSPACE><WORD[seconds:minutes:hours]>")
+	}
+
+	switch temp[1] {
+	case "seconds":
+		d, err := strconv.Atoi(temp[0])
+		if err != nil {
+			return err
+		}
+		time.Sleep(time.Duration(d) * time.Second)
+	case "minutes":
+		d, err := strconv.Atoi(temp[0])
+		if err != nil {
+			return err
+		}
+		time.Sleep(time.Duration(d) * time.Minute)
+	case "hours":
+		d, err := strconv.Atoi(temp[0])
+		if err != nil {
+			return err
+		}
+		time.Sleep(time.Duration(d) * time.Hour)
+	}
+
+	return nil
 }
 
 func Silent(err error) error {

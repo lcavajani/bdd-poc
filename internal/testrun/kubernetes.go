@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -24,6 +25,14 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 )
 
+const (
+
+	// APICallRetryInterval defines how long we wait before retrying a failed API operation (kubeadm const)
+	APICallRetryInterval = 500 * time.Millisecond
+
+	Timeout = 5 * time.Minute
+)
+
 var (
 	kindAppsReplicaSet = schema.GroupKind{Group: "apps", Kind: "ReplicaSet"}
 	kindAppsDeployment = schema.GroupKind{Group: "apps", Kind: "Deployment"}
@@ -36,7 +45,7 @@ var (
 	tblshoot = map[string]string{
 		"pod":       "tblshoot",
 		"container": "tblshoot",
-		"ns":        defaultNamespace,
+		"ns":        metav1.NamespaceDefault,
 	}
 )
 
@@ -146,6 +155,21 @@ func (t *TestRun) GetPodsByLabels(ns, labels string) (*v1.PodList, error) {
 	return pods, nil
 }
 
+// PodWithLabelsExist returns an error if a pod does not exist
+// based on its namespace and labels
+func (t *TestRun) PodWithLabelsExist(ns, labels string) error {
+	pods, err := t.GetPodsByLabels(ns, labels)
+	if err != nil {
+		return err
+	}
+
+	if len(pods.Items) == 0 {
+		return fmt.Errorf("no pods in namespace, %v with labels, %v exist ", ns, labels)
+	}
+
+	return nil
+}
+
 /// NoPodWithLabelsExist returns an error if a pod exists
 // based on its namespace and labels
 func (t *TestRun) NoPodWithLabelsExist(ns, labels string) error {
@@ -155,7 +179,7 @@ func (t *TestRun) NoPodWithLabelsExist(ns, labels string) error {
 	}
 
 	if len(pods.Items) != 0 {
-		return fmt.Errorf("pods with labels, %v exist in namespace, %v", labels, ns)
+		return fmt.Errorf("pods in namespace, %v with labels, %v exist ", ns, labels)
 	}
 
 	return nil
@@ -313,6 +337,29 @@ func IsRuntimeObjectReady(obj runtime.Object) error {
 	}
 }
 
+// IsRuntimeObjectUpToDate returns if a given object is up-to-date
+//func IsRuntimeObjectUpToDate(obj runtime.Object) error {
+//	switch typed := obj.(type) {
+//	case *appsv1.ReplicaSet:
+//		if typed.Status.Replicas >= typed.Status.ReadyReplicas {
+//			return nil
+//		}
+//		return fmt.Errorf("Some pods are not ready %d/%d", typed.Status.Replicas, typed.Status.ReadyReplicas)
+//	case *appsv1.Deployment:
+//		if typed.Status.Replicas >= typed.Status.ReadyReplicas {
+//			return nil
+//		}
+//		return fmt.Errorf("Some pods are not ready %d/%d", typed.Status.Replicas, typed.Status.ReadyReplicas)
+//	case *appsv1.DaemonSet:
+//		if typed.Status.DesiredNumberScheduled == typed.Status.UpdatedNumberScheduled {
+//			return nil
+//		}
+//		return fmt.Errorf("Some pods are not ready %d/%d", typed.Status.DesiredNumberScheduled, typed.Status.UpdatedNumberScheduled)
+//	default:
+//		return fmt.Errorf("Unsupported kind when getting number of replicas: %v", obj)
+//	}
+//}
+
 func (t *TestRun) GetNode(name string) (*v1.Node, error) {
 	node, err := t.ClientSet.CoreV1().Nodes().Get(name, metav1.GetOptions{})
 	if err != nil {
@@ -391,3 +438,61 @@ func (t *TestRun) executeCmd(method string, url *url.URL, stdin io.Reader, stdou
 //
 //	return errors.New(fmt.Sprintf("Some pods are not ready %d/%d", d.Status.Replicas, d.Status.ReadyReplicas))
 //}
+
+func (t *TestRun) GetPodsLogsByLabels(ns, labels string) ([]byte, error) {
+	pods, err := t.GetPodsByLabels(ns, labels)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(pods.Items) == 0 {
+		return nil, fmt.Errorf("no pods in namespace, %v with labels, %v exist ", ns, labels)
+	}
+
+	var podsLogs []byte
+
+	for _, pod := range pods.Items {
+		podLogs, getLogErr := t.GetPodLogs(ns, pod.ObjectMeta.Name, pod.Spec.Containers[0].Name)
+		if getLogErr != nil {
+			return nil, getLogErr
+		}
+
+		podsLogs = concatByteSlices([][]byte{podsLogs, podLogs})
+	}
+
+	return podsLogs, nil
+}
+
+func (t *TestRun) GetPodLogs(ns, pod, container string) ([]byte, error) {
+	if container != "" {
+		pod, err := t.GetPodByName(ns, pod)
+		if err != nil {
+			log.Fatal(err)
+		}
+		container = pod.Spec.Containers[0].Name
+	}
+
+	req := t.ClientSet.CoreV1().RESTClient().Get().
+		Namespace(ns).
+		Name(pod).
+		Resource("pods").
+		SubResource("log").
+		Param("container", container).
+		VersionedParams(&v1.PodLogOptions{Container: container}, scheme.ParameterCodec)
+
+	podLogs, err := req.Stream()
+	if err != nil {
+		return nil, fmt.Errorf("error in opening stream")
+	}
+	defer podLogs.Close()
+
+	buf := new(bytes.Buffer)
+	_, err = io.Copy(buf, podLogs)
+	if err != nil {
+		return nil, fmt.Errorf("error in copy information from podLogs to buf")
+	}
+	//str := buf.String()
+	//fmt.Println(str)
+
+	return buf.Bytes(), nil
+}

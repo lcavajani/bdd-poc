@@ -31,12 +31,34 @@ func FeatureContext(s *godog.Suite) {
 	s.Step(`^cilium ConfigMap does not have the options:$`, t.CiliumConfigMapDoesNotHaveTheOptions)
 	s.Step(`^In namespace "([^"]*)" no pods with labels "([^"]*)" exist$`, t.NoPodWithLabelsExist)
 
+	s.Step(`^wait in namespace "([^"]*)" for Daemonset "([^"]*)" to be up-to-date$`, t.WaitDaemonSetToBeUpToDate)
+
 	s.Step(`^I run "([^"]*)" and fails$`, func(command string) error {
 		return testrun.Silent(t.IRunInDirectory(command, "."))
 	})
 
 	s.Step(`^httpbin must be ready$`, t.HttpbinMustBeReady)
 	s.Step(`^tblshoot must be ready$`, t.TblshootMustBeReady)
+
+	//	s.Step(`^I run ssh command with sudo "([^"]*)" on "([^"]*)" with "([^"]*)" user$`, iRunSshCommandWithSudoOnWithUser)
+	s.Step(`^I run ssh command with "([^"]*)" user on "([^"]*)" on port (\d+) with sudo the command "([^"]*)"$`, func(user, hostname string, port int, commandPlusArgs string) error {
+		return t.ISsh(user, hostname, port, true, commandPlusArgs)
+	})
+
+	//	s.Step(`^I ssh "([^"]*)"$`, func(command string) error {
+	//		stdout, toto, err := t.Ssh(false, command)
+	//		fmt.Println(err)
+	//		fmt.Println(string(stdout))
+	//		fmt.Println(string(toto))
+	//		return err
+	//	})
+
+	s.Step(`^wait "([^"]*)"$`, testrun.WaitDuration)
+
+	// KURED
+	s.Step(`^I set kured reboot sentinel period to "([^"]*)"$`, t.SetKuredRebootSentinelPeriod)
+	s.Step(`^wait for kured Daemonset to be up-to-date$`, t.WaitKuredDaemonSetToBeUpToDate)
+	s.Step(`^I get kured pod logs$`, t.GetKuredPodLogs)
 
 	// KUBERNETES GO-CLIENT
 	s.Step(`^I exec in namespace "([^"]*)" in pod "([^"]*)" the command "([^"]*)"$`, t.IExecCommandInPod)
@@ -47,6 +69,7 @@ func FeatureContext(s *godog.Suite) {
 	s.Step(`^I exec with kubectl in namespace "([^"]*)" in pod "([^"]*)" in container "([^"]*)" the command "([^"]*)"$`, t.IKubectlExecCommandInPodContainer)
 
 	s.Step(`^I apply the manifest "([^"]*)"$`, t.IApplyManifest)
+	s.Step(`^I apply the manifest "([^"]*)" and wait for it to be ready$`, t.IApplyManifest)
 
 	s.Step(`^I send "([^"]*)" request to "([^"]*)"$`, t.ISendRequestTo)
 	s.Step(`^I send "([^"]*)" request to "([^"]*)" and fails$`, func(method, path string) error {
@@ -76,10 +99,14 @@ func FeatureContext(s *godog.Suite) {
 	s.Step(`^the "([^"]*)" repository exist$`, t.TheRepositoryExist)
 	s.Step(`^the directory "([^"]*)" exist$`, t.TheDirectoryExist)
 	s.Step(`^the file "([^"]*)" exist$`, t.TheFileExist)
-	s.Step(`^the output contains "([^"]*)"$`, t.TheOutputContains)
-	s.Step(`^the output contains "([^"]*)" and "([^"]*)"$`, t.TheOutputContainsAnd)
-	s.Step(`^the output contains "([^"]*)" or "([^"]*)"$`, t.TheOutputContainsOr)
-	s.Step(`^the output contains a valid ip address$`, t.TheOutputContainsAValidIpAddress)
+	s.Step(`^the output contains "([^"]*)"$`, t.TheOutputContains) //TODO: remove
+	s.Step(`^the output should contain "([^"]*)"$`, t.TheOutputContains)
+	s.Step(`^the output contains "([^"]*)" and "([^"]*)"$`, t.TheOutputContainsAnd) //TODO: remove
+	s.Step(`^the output should contain "([^"]*)" and "([^"]*)"$`, t.TheOutputContainsAnd)
+	s.Step(`^the output contains "([^"]*)" or "([^"]*)"$`, t.TheOutputContainsOr) //TODO: remove
+	s.Step(`^the output should contain "([^"]*)" or "([^"]*)"$`, t.TheOutputContainsOr)
+	s.Step(`^the output contains a valid ip address$`, t.TheOutputContainsAValidIpAddress) //TODO: remove
+	s.Step(`^the output should contain a valid ip address$`, t.TheOutputContainsAValidIpAddress)
 	s.Step(`^the output shoud match the output the command "([^"]*)"$`, t.TheOutputShoudMatchTheOutputTheCommand)
 	s.Step(`^there is "([^"]*)" directory$`, t.TheDirectoryExist)
 	s.Step(`^there is no "([^"]*)" directory$`, t.ThereIsNoDirectory)
