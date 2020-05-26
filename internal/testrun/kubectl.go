@@ -23,13 +23,12 @@ var (
 	kubectlActions = map[string]string{
 		"apply": "apply",
 		"exec":  "exec",
+		"path":  "patch",
 		"wait":  "wait",
 	}
 )
 
 const (
-	defaultNamespace string = "default"
-
 	emptyContainerName   string = ""
 	defaultWaitCondition string = "condition=Ready"
 	defaultWaitTimeout   string = "300s"
@@ -43,14 +42,18 @@ type KubectlOptions struct {
 	Namespace          string // -n default
 	Action             string // get
 	ResourceKind       string // pod
-	Resource           string // httpbin
+	Resource           string // httpbin, manifest url
 	Args               []string
 	AllNamespaces      bool // -A
 	IsResourceManifest bool // -f
 }
 
+type KubectlApplyOptions struct {
+	Prune bool
+	//	ManifestPath string
+}
+
 type KubectlWaitOptions struct {
-	//Resource  string
 	Condition string
 	Timeout   string
 }
@@ -61,6 +64,10 @@ type KubectlExecOptions struct {
 	//	Stdin         io.Reader
 	//	CaptureStdout bool
 	//	CaptureStderr bool
+}
+
+type KubectlPatchOptions struct {
+	StrategicMergePatch string
 }
 
 func (t *TestRun) RunKubectl(options *KubectlOptions) ([]byte, error) {
@@ -95,12 +102,13 @@ func (t *TestRun) RunKubectl(options *KubectlOptions) ([]byte, error) {
 	}
 
 	fullCmd := concatStringSlices([][]string{defaultCmd, nsFlags, resourceFlags, options.Args})
+	//fullCmd := concatStringSlices([][]string{defaultCmd, nsFlags, options.Args})
 	deleteEmtptyInSlice(&fullCmd)
 	cmd := exec.Command(fullCmd[0], fullCmd[1:]...)
 	combinedOutput, err := cmd.CombinedOutput()
 
 	if err != nil {
-		//fmt.Println(fullCmd)
+		fmt.Println(fullCmd)
 		return nil, fmt.Errorf("failed to run kubectl:%s\n%s", combinedOutput, err)
 	}
 
@@ -142,12 +150,27 @@ func (t *TestRun) IKubectlExecCommandInPodContainer(ns, pod, container, command 
 	return err
 }
 
-func (t *TestRun) RunKubectlApply(options *KubectlOptions) ([]byte, error) {
+//func (t *TestRun) RunKubectlApply(options *KubectlOptions, manifestPath string) ([]byte, error) {
+func (t *TestRun) RunKubectlApply(options *KubectlOptions, applyOptions *KubectlApplyOptions) ([]byte, error) {
+	var applyFlags []string
+
+	if applyOptions.Prune {
+		applyFlags = append(applyFlags, "--prune")
+	}
+
 	options.Action = kubectlActions["apply"]
+	options.Args = concatStringSlices([][]string{options.Args, applyFlags})
+
+	return t.RunKubectl(options)
+}
+
+func (t *TestRun) RunKubectlPatch(options *KubectlOptions, patchOptions *KubectlPatchOptions) ([]byte, error) {
+	options.Action = kubectlActions["patch"]
 	return t.RunKubectl(options)
 }
 
 func (t *TestRun) RunKubectlWait(options *KubectlOptions, waitOptions *KubectlWaitOptions) ([]byte, error) {
+
 	if waitOptions.Condition == "" {
 		waitOptions.Condition = defaultWaitCondition
 	}
@@ -165,8 +188,8 @@ func (t *TestRun) RunKubectlWait(options *KubectlOptions, waitOptions *KubectlWa
 // RunKubectlApplyAndWaitForReady is a wrapper around RunKubectlApply and RunKubectlWait.
 // It applies a manifest and wait for a specific condition.
 // It returns an error if applying or waiting failed.
-func (t *TestRun) RunKubectlApplyAndWaitForReady(options *KubectlOptions, waitOptions *KubectlWaitOptions) (err error) {
-	t.CombinedOutput, err = t.RunKubectlApply(options)
+func (t *TestRun) RunKubectlApplyAndWaitForReady(options *KubectlOptions, waitOptions *KubectlWaitOptions, applyOptions *KubectlApplyOptions) (err error) {
+	t.CombinedOutput, err = t.RunKubectlApply(options, applyOptions)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -179,11 +202,34 @@ func (t *TestRun) RunKubectlApplyAndWaitForReady(options *KubectlOptions, waitOp
 	return err
 }
 
-// IApplyManifest apples a manifest using kubectl.
+// IApplyManifest applies a manifest using kubectl.
 // It returns an error if applying failed.
 func (t *TestRun) IApplyManifest(manifestPath string) (err error) {
+	//	t.CombinedOutput, err = t.RunKubectlApply(
+	//		&KubectlOptions{IsResourceManifest: true, Resource: manifestPath},
+	//	)
 	t.CombinedOutput, err = t.RunKubectlApply(
 		&KubectlOptions{IsResourceManifest: true, Resource: manifestPath},
+		&KubectlApplyOptions{},
+	)
+
+	return err
+}
+
+// IApplyManifestAndWaitForReay applies a manifest using kubectl
+// and wait for a specific condition.
+// It returns an error if applying failed.
+func (t *TestRun) IApplyManifestAndWaitForReady(manifestPath string) (err error) {
+	//	t.CombinedOutput, err = t.RunKubectlApplyAndWaitForReady(
+	//		&KubectlOptions{IsResourceManifest: true, Resource: manifestPath},
+	//		&KubectlWaitOptions{},
+	//	)
+	return t.RunKubectlApplyAndWaitForReady(
+		&KubectlOptions{IsResourceManifest: true, Resource: manifestPath},
+		&KubectlWaitOptions{},
+		&KubectlApplyOptions{},
+	//	&KubectlWaitOptions{},
+	//	&KubectlApplyOptions{ManifestPath: manifestPath},
 	)
 
 	return err
@@ -195,6 +241,9 @@ func (t *TestRun) HttpbinMustBeReady() error {
 	return t.RunKubectlApplyAndWaitForReady(
 		&KubectlOptions{IsResourceManifest: true, Resource: httpbinManifestPath},
 		&KubectlWaitOptions{},
+		&KubectlApplyOptions{},
+		//&KubectlWaitOptions{},
+		//&KubectlApplyOptions{ManifestPath: httpbinManifestPath},
 	)
 }
 
@@ -204,6 +253,9 @@ func (t *TestRun) TblshootMustBeReady() error {
 	return t.RunKubectlApplyAndWaitForReady(
 		&KubectlOptions{IsResourceManifest: true, Resource: tblshootManifestPath},
 		&KubectlWaitOptions{},
+		&KubectlApplyOptions{},
+		//&KubectlWaitOptions{},
+		//&KubectlApplyOptions{ManifestPath: tblshootManifestPath},
 	)
 }
 
