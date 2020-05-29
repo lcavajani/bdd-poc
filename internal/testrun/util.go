@@ -71,15 +71,50 @@ func (t *TestRun) IRunInDirectory(command, workdir string) error {
 	return err
 }
 
-func (t *TestRun) TheOutputContains(arg string) error {
+func (t *TestRun) ShouldContain(output, substr string) error {
 	//TODO: show output when debug enable, currently use to check output during dev
-	fmt.Println(string(t.CombinedOutput))
-
-	if !strings.Contains(fmt.Sprintf("%s", string(t.CombinedOutput)), arg) {
-		return errors.New("Output does not contain expected argument")
+	var str string
+	switch output {
+	case "output":
+		str = string(t.CombinedOutput)
+	case "stdout":
+		str = string(t.StdOut)
+	case "stderr":
+		str = string(t.StdErr)
+	default:
+		return errors.New(fmt.Sprintf("%v not recognized, choose between [output|stdout|stderr]", output))
 	}
+
+	if !strings.Contains(str, substr) {
+		//TODO: show output when debug enable, currently use to check output during dev
+		fmt.Println("Current:", str)
+		fmt.Println("Expected:", substr)
+		return errors.New(fmt.Sprintf("%v does not contain expected argument", output))
+	}
+
 	return nil
 }
+
+//TODO: all these are very redundant
+//func (t *TestRun) StderrContains(arg string) error {
+//	//TODO: show output when debug enable, currently use to check output during dev
+//	fmt.Println(string(t.StdErr))
+//
+//	if !strings.Contains(fmt.Sprintf("%s", string(t.StdErr)), arg) {
+//		return errors.New("stderr does not contain expected argument")
+//	}
+//	return nil
+//}
+
+//func (t *TestRun) TheOutputContains(arg string) error {
+//	//TODO: show output when debug enable, currently use to check output during dev
+//	fmt.Println(string(t.CombinedOutput))
+//
+//	if !strings.Contains(fmt.Sprintf("%s", string(t.CombinedOutput)), arg) {
+//		return errors.New("Output does not contain expected argument")
+//	}
+//	return nil
+//}
 
 func (t *TestRun) TheOutputContainsAnd(arg1, arg2 string) error {
 	if !strings.Contains(fmt.Sprintf("%s", string(t.CombinedOutput)), arg1) && strings.Contains(fmt.Sprintf("%s", string(t.CombinedOutput)), arg2) {
@@ -110,7 +145,7 @@ func (t *TestRun) TheOutputShoudMatchTheOutputTheCommand(command2 string) error 
 	if err != nil {
 		return errors.New(string(cmd2Output))
 	}
-	return t.TheOutputContains(string(cmd2Output))
+	return t.ShouldContain("output", string(cmd2Output))
 }
 
 func WaitDuration(duration string) (err error) {

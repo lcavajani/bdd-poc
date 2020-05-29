@@ -12,12 +12,13 @@ import (
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 
 	//"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -30,7 +31,7 @@ const (
 	// APICallRetryInterval defines how long we wait before retrying a failed API operation (kubeadm const)
 	APICallRetryInterval = 500 * time.Millisecond
 
-	Timeout = 5 * time.Minute
+	DefaultPollTimeout = 5 * time.Minute
 )
 
 var (
@@ -130,7 +131,7 @@ func (t *TestRun) CreateClientSet() (*kubernetes.Clientset, error) {
 	return clientSet, nil
 }
 
-func (t *TestRun) GetPodByName(ns, name string) (*v1.Pod, error) {
+func (t *TestRun) GetPodByName(ns, name string) (*corev1.Pod, error) {
 	pod, err := t.ClientSet.CoreV1().Pods(ns).Get(name, metav1.GetOptions{})
 	//if !(errors.IsNotFound(err)) {
 	//	fmt.Printf("Found pod %s in namespace %s\n", name, ns)
@@ -143,7 +144,7 @@ func (t *TestRun) GetPodByName(ns, name string) (*v1.Pod, error) {
 }
 
 // GetPodsByLabels returns a list of pods based on their namespace and labels
-func (t *TestRun) GetPodsByLabels(ns, labels string) (*v1.PodList, error) {
+func (t *TestRun) GetPodsByLabels(ns, labels string) (*corev1.PodList, error) {
 	pods, err := t.ClientSet.CoreV1().Pods(ns).List(metav1.ListOptions{
 		LabelSelector: labels,
 	})
@@ -205,14 +206,35 @@ func (t *TestRun) GetDaemonset(ns, name string) (*appsv1.DaemonSet, error) {
 	return ds.(*appsv1.DaemonSet), nil
 }
 
+func (t *TestRun) WaitDaemonSetToBeUpToDate(ns, name string) error {
+	return wait.PollImmediate(APICallRetryInterval, DefaultPollTimeout, func() (bool, error) {
+		ds, getErr := t.GetDaemonset(ns, name)
+		if getErr != nil {
+			return false, fmt.Errorf("Failed to get latest version of Daemonset: %v", getErr)
+		}
+
+		// first check if pods are all updated
+		if ds.Status.DesiredNumberScheduled != ds.Status.UpdatedNumberScheduled {
+			return false, nil
+		}
+
+		// and check if they are ready after
+		if err := t.DaemonSetIsReady(ns, name); err != nil {
+			return false, nil
+		}
+
+		return true, nil
+	})
+}
+
 // GetConfigMap returns a ConfigMap based on it namespace and name
-func (t *TestRun) GetConfigMap(ns, name string) (*v1.ConfigMap, error) {
+func (t *TestRun) GetConfigMap(ns, name string) (*corev1.ConfigMap, error) {
 	cm, err := t.GetRuntimeObjectForKind(kindConfigMap, ns, name)
 	if err != nil {
 		return nil, err
 	}
 
-	return cm.(*v1.ConfigMap), nil
+	return cm.(*corev1.ConfigMap), nil
 }
 
 // DaemonSetExists returns an error if DaemonSet does not exist
@@ -337,30 +359,8 @@ func IsRuntimeObjectReady(obj runtime.Object) error {
 	}
 }
 
-// IsRuntimeObjectUpToDate returns if a given object is up-to-date
-//func IsRuntimeObjectUpToDate(obj runtime.Object) error {
-//	switch typed := obj.(type) {
-//	case *appsv1.ReplicaSet:
-//		if typed.Status.Replicas >= typed.Status.ReadyReplicas {
-//			return nil
-//		}
-//		return fmt.Errorf("Some pods are not ready %d/%d", typed.Status.Replicas, typed.Status.ReadyReplicas)
-//	case *appsv1.Deployment:
-//		if typed.Status.Replicas >= typed.Status.ReadyReplicas {
-//			return nil
-//		}
-//		return fmt.Errorf("Some pods are not ready %d/%d", typed.Status.Replicas, typed.Status.ReadyReplicas)
-//	case *appsv1.DaemonSet:
-//		if typed.Status.DesiredNumberScheduled == typed.Status.UpdatedNumberScheduled {
-//			return nil
-//		}
-//		return fmt.Errorf("Some pods are not ready %d/%d", typed.Status.DesiredNumberScheduled, typed.Status.UpdatedNumberScheduled)
-//	default:
-//		return fmt.Errorf("Unsupported kind when getting number of replicas: %v", obj)
-//	}
-//}
-
-func (t *TestRun) GetNode(name string) (*v1.Node, error) {
+// GetNode returns a node
+func (t *TestRun) GetNode(name string) (*corev1.Node, error) {
 	node, err := t.ClientSet.CoreV1().Nodes().Get(name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
@@ -368,6 +368,133 @@ func (t *TestRun) GetNode(name string) (*v1.Node, error) {
 
 	return node, nil
 }
+
+// IsNodeSchedulable returns if a node is Schedulable
+func (t *TestRun) IsNodeSchedulable(name string) error {
+	node, err := t.GetNode(name)
+	if err != nil {
+		return err
+	}
+
+	if !node.Spec.Unschedulable {
+		return nil
+	}
+
+	return fmt.Errorf("Node %v is not schedulable", name)
+}
+
+func (t *TestRun) WaitNodeToBeSchedulable(name string) error {
+	return wait.PollImmediate(APICallRetryInterval, DefaultPollTimeout, func() (bool, error) {
+		node, err := t.GetNode(name)
+		if err != nil {
+			return false, err
+		}
+
+		if !node.Spec.Unschedulable {
+			return true, nil
+		}
+
+		return false, nil
+	})
+}
+
+// IsNodeUnschedulable returns if a node is Unschedulable
+func (t *TestRun) IsNodeUnschedulable(name string) error {
+	node, err := t.GetNode(name)
+	if err != nil {
+		return err
+	}
+
+	if node.Spec.Unschedulable {
+		return nil
+	}
+
+	return fmt.Errorf("Node %v is schedulable", name)
+}
+
+func (t *TestRun) WaitNodeToBeNotSchedulable(name string) error {
+	return wait.PollImmediate(APICallRetryInterval, DefaultPollTimeout, func() (bool, error) {
+		node, err := t.GetNode(name)
+		if err != nil {
+			return false, err
+		}
+
+		if node.Spec.Unschedulable {
+			return true, nil
+		}
+
+		return false, nil
+	})
+}
+
+func (t *TestRun) IsNodeReady(name string) error {
+	node, err := t.GetNode(name)
+	if err != nil {
+		return err
+	}
+
+	if getNodeReadyStatus(node) {
+		return nil
+	}
+
+	return fmt.Errorf("Node %v is not ready", name)
+}
+
+func (t *TestRun) WaitNodeToBeReady(name string) error {
+	return wait.PollImmediate(APICallRetryInterval, DefaultPollTimeout, func() (bool, error) {
+		node, err := t.GetNode(name)
+		if err != nil {
+			return false, err
+		}
+
+		if getNodeReadyStatus(node) {
+			return true, nil
+		}
+
+		return false, nil
+	})
+}
+
+func getNodeReadyStatus(node *corev1.Node) bool {
+	for _, condition := range node.Status.Conditions {
+		if condition.Type == corev1.NodeReady {
+			return condition.Status == corev1.ConditionTrue
+		}
+	}
+	return false
+}
+
+func (t *TestRun) IsNodeNotReady(name string) error {
+	node, err := t.GetNode(name)
+	if err != nil {
+		return err
+	}
+
+	if !getNodeReadyStatus(node) {
+		return nil
+	}
+
+	return fmt.Errorf("Node %v is ready", name)
+}
+
+func (t *TestRun) WaitNodeToBeNotReady(name string) error {
+	return wait.PollImmediate(APICallRetryInterval, DefaultPollTimeout, func() (bool, error) {
+		node, err := t.GetNode(name)
+		if err != nil {
+			return false, err
+		}
+
+		if !getNodeReadyStatus(node) {
+			return true, nil
+		}
+
+		return false, nil
+	})
+}
+
+//func (t *TestRun) WaitUntilNodeReady(name string) error {
+//
+//}
 
 func (t *TestRun) ExecuteCommandInPodWithCombinedOutput(ns, pod, container string, cmd []string) ([]byte, error) {
 	stdout, stderr, err := t.ExecuteCommandInPod(ns, pod, container, cmd)
@@ -398,7 +525,7 @@ func (t *TestRun) ExecuteCommandInPod(ns, pod, container string, cmd []string) (
 		Param("container", container)
 		//		Param("container", pod.Spec.Containers[0].Name)
 
-	options := &v1.PodExecOptions{
+	options := &corev1.PodExecOptions{
 		Container: container,
 		Command:   cmd,
 		Stdin:     false,
@@ -478,7 +605,7 @@ func (t *TestRun) GetPodLogs(ns, pod, container string) ([]byte, error) {
 		Resource("pods").
 		SubResource("log").
 		Param("container", container).
-		VersionedParams(&v1.PodLogOptions{Container: container}, scheme.ParameterCodec)
+		VersionedParams(&corev1.PodLogOptions{Container: container}, scheme.ParameterCodec)
 
 	podLogs, err := req.Stream()
 	if err != nil {

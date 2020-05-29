@@ -37,13 +37,27 @@ func FeatureContext(s *godog.Suite) {
 		return testrun.Silent(t.IRunInDirectory(command, "."))
 	})
 
+	s.Step(`^node "([^"]*)" should be ready$`, t.IsNodeReady)
+	s.Step(`^node "([^"]*)" should not be ready$`, t.IsNodeNotReady)
+
 	s.Step(`^httpbin must be ready$`, t.HttpbinMustBeReady)
 	s.Step(`^tblshoot must be ready$`, t.TblshootMustBeReady)
 
-	//	s.Step(`^I run ssh command with sudo "([^"]*)" on "([^"]*)" with "([^"]*)" user$`, iRunSshCommandWithSudoOnWithUser)
-	s.Step(`^I run ssh command with "([^"]*)" user on "([^"]*)" on port (\d+) with sudo the command "([^"]*)"$`, func(user, hostname string, port int, commandPlusArgs string) error {
+	// SSH
+	s.Step(`^I run ssh command with user "([^"]*)" on host "([^"]*)" on port (\d+) without sudo the command "([^"]*)"$`, func(user, hostname string, port int, commandPlusArgs string) error {
+		return t.ISsh(user, hostname, port, false, commandPlusArgs)
+	})
+
+	s.Step(`^I run ssh command with user "([^"]*)" on host "([^"]*)" on port (\d+) with sudo the command "([^"]*)"$`, func(user, hostname string, port int, commandPlusArgs string) error {
 		return t.ISsh(user, hostname, port, true, commandPlusArgs)
 	})
+
+	s.Step(`^I run ssh command with user "([^"]*)" on host "([^"]*)" on port (\d+) with sudo the command "([^"]*)" and fails$`, func(user, hostname string, port int, commandPlusArgs string) error {
+		return testrun.Silent(t.ISsh(user, hostname, port, true, commandPlusArgs))
+	})
+
+	s.Step(`^the ([^"]*) should contain "([^"]*)"$`, t.ShouldContain)
+	//	s.Step(`^the ([^"]*) should contain "([^"]*)"$`, func(output, substr string) error { return t.ShouldContain(output, substr) })
 
 	//	s.Step(`^I ssh "([^"]*)"$`, func(command string) error {
 	//		stdout, toto, err := t.Ssh(false, command)
@@ -53,16 +67,20 @@ func FeatureContext(s *godog.Suite) {
 	//		return err
 	//	})
 
-	s.Step(`^wait "([^"]*)"$`, testrun.WaitDuration)
+	s.Step(`^I wait "([^"]*)"$`, testrun.WaitDuration)
 
 	// KURED
 	s.Step(`^I set kured reboot sentinel period to "([^"]*)"$`, t.SetKuredRebootSentinelPeriod)
 	s.Step(`^wait for kured Daemonset to be up-to-date$`, t.WaitKuredDaemonSetToBeUpToDate)
-	s.Step(`^I get kured pod logs$`, t.GetKuredPodLogs)
+	s.Step(`^I get kured pods logs$`, t.GetKuredPodsLogs)
 
 	// KUBERNETES GO-CLIENT
 	s.Step(`^I exec in namespace "([^"]*)" in pod "([^"]*)" the command "([^"]*)"$`, t.IExecCommandInPod)
 	s.Step(`^I exec in namespace "([^"]*)" in pod "([^"]*)" in container "([^"]*)" the command "([^"]*)"$`, t.IExecCommandInPodContainer)
+	s.Step(`^wait for the node "([^"]*)" to be ready$`, t.WaitNodeToBeReady)
+	s.Step(`^wait for the node "([^"]*)" not to be ready$`, t.WaitNodeToBeNotReady)
+	s.Step(`^wait for the node "([^"]*)" to be schedulable$`, t.WaitNodeToBeSchedulable)
+	s.Step(`^wait for the node "([^"]*)" not to be schedulable$`, t.WaitNodeToBeNotSchedulable)
 
 	// KUBECTL
 	s.Step(`^I exec with kubectl in namespace "([^"]*)" in pod "([^"]*)" the command "([^"]*)"$`, t.IKubectlExecCommandInPod)
@@ -99,8 +117,8 @@ func FeatureContext(s *godog.Suite) {
 	s.Step(`^the "([^"]*)" repository exist$`, t.TheRepositoryExist)
 	s.Step(`^the directory "([^"]*)" exist$`, t.TheDirectoryExist)
 	s.Step(`^the file "([^"]*)" exist$`, t.TheFileExist)
-	s.Step(`^the output contains "([^"]*)"$`, t.TheOutputContains) //TODO: remove
-	s.Step(`^the output should contain "([^"]*)"$`, t.TheOutputContains)
+	//	s.Step(`^the output contains "([^"]*)"$`, t.TheOutputContains) //TODO: remove
+	//	s.Step(`^the output should contain "([^"]*)"$`, t.TheOutputContains)
 	s.Step(`^the output contains "([^"]*)" and "([^"]*)"$`, t.TheOutputContainsAnd) //TODO: remove
 	s.Step(`^the output should contain "([^"]*)" and "([^"]*)"$`, t.TheOutputContainsAnd)
 	s.Step(`^the output contains "([^"]*)" or "([^"]*)"$`, t.TheOutputContainsOr) //TODO: remove

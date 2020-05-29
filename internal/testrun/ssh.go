@@ -76,9 +76,9 @@ func (t *TestRun) ISsh(user, hostname string, port int, sudo bool, command strin
 	h := Host{User: user, Hostname: hostname, Port: port, Sudo: sudo}
 	t.StdOut, t.StdErr, err = h.Ssh(command, args...)
 	if err != nil {
+		fmt.Println(err)
 		return err
 	}
-
 	t.CombinedOutput = concatByteSlices([][]byte{t.StdOut, t.StdErr})
 	return nil
 }
@@ -123,12 +123,13 @@ func (h *Host) internalSshWithStdin(stdin string, command string, args ...string
 	stderrChan := make(chan []byte)
 	go readerStreamer(stdoutReader, stdoutChan)
 	go readerStreamer(stderrReader, stderrChan)
-	if err := session.Wait(); err != nil {
-		return nil, nil, err
-	}
+	//	if err := session.Wait(); err != nil {
+	//		return nil, nil, err
+	//	}
+	error = session.Wait()
 	stdout = <-stdoutChan
 	stderr = <-stderrChan
-	return stdout, stderr, nil
+	return stdout, stderr, error
 }
 
 //func readerStreamer(reader io.Reader, outputChan chan<- string, description string, silent bool) {
@@ -140,7 +141,7 @@ func readerStreamer(reader io.Reader, outputChan chan<- []byte) {
 
 	for scanner.Scan() {
 		result.Write(scanner.Bytes())
-		//fmt.Printf(scanner.Text()) -> use for debug
+		fmt.Printf(scanner.Text()) // use for debug
 	}
 
 	outputChan <- result.Bytes()

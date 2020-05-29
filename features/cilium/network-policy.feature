@@ -10,7 +10,7 @@ Feature: cilium-network-policies
 
   Scenario: http traffic is allowed without network policy
     When I send "<method>" request to "<path>"
-    Then the output contains "<retcode>"
+    Then the output should contain "<retcode>"
 
     Examples:
       | method | path                  | retcode |
@@ -23,9 +23,9 @@ Feature: cilium-network-policies
 
   Scenario: dns traffic is allowed without network policy
     When I resolve "<name>"
-    Then the output contains "<ip>"
+    Then the output should contain "<ip>"
     When I reverse resolve "<ip>"
-    Then the output contains "<name>"
+    Then the output should contain "<name>"
 
     Examples:
       | name            | ip        |
@@ -40,9 +40,9 @@ Feature: cilium-network-policies
 
   Scenario: dns traffic is forbidden by the default network policy
     When I resolve "<name>" and fails
-    Then the output contains "connection timed out"
+    Then the output should contain "connection timed out"
     When I reverse resolve "<ip>" and fails
-    Then the output contains "connection timed out"
+    Then the output should contain "connection timed out"
 
     Examples:
       | name            | ip        |
@@ -57,9 +57,9 @@ Feature: cilium-network-policies
 
   Scenario: dns is allowed by network policy
     When I resolve "<name>"
-    Then the output contains "<ip>"
+    Then the output should contain "<ip>"
     When I reverse resolve "<ip>"
-    Then the output contains "<name>"
+    Then the output should contain "<name>"
 
     Examples:
       | name            | ip        |
@@ -71,7 +71,7 @@ Feature: cilium-network-policies
 
   Scenario: http traffic is still not allowed by the default network policy
     When I send "<method>" request to "<path>" and fails
-    Then the output contains "<retcode>"
+    Then the output should contain "<retcode>"
 
     Examples:
       | method | path                  | retcode |
@@ -85,7 +85,7 @@ Feature: cilium-network-policies
 
   Scenario: http traffic is allowed by network policy at layer 3
     When I send "<method>" request to "<path>"
-    Then the output contains "<retcode>"
+    Then the output should contain "<retcode>"
 
     Examples:
       | method | path                  | retcode |
@@ -103,7 +103,7 @@ Feature: cilium-network-policies
 
   Scenario: http traffic is filtered by network policy at layer 7
     When I send "<method>" request to "<path>"
-    Then the output contains "<retcode>"
+    Then the output should contain "<retcode>"
 
     Examples:
       | method | path                  | retcode |

@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
 )
 
@@ -16,6 +15,8 @@ var (
 	}
 )
 
+// SetKuredRebootSentinelPeriod will change the reboot sentinel period
+// in the kured DaemonSet
 func (t *TestRun) SetKuredRebootSentinelPeriod(period string) error {
 	dsClient := t.ClientSet.AppsV1().DaemonSets(kuredDaemonset["namespace"])
 
@@ -40,32 +41,15 @@ func (t *TestRun) SetKuredRebootSentinelPeriod(period string) error {
 	return nil
 }
 
+// WaitKuredDaemonSetToBeUpToDate is a wrapper to wait for
+// kured DaemonSet to be up-to-date. This is used for example after
+// changing the reboot sentinel period
 func (t *TestRun) WaitKuredDaemonSetToBeUpToDate() error {
 	return t.WaitDaemonSetToBeUpToDate(kuredDaemonset["namespace"], kuredDaemonset["name"])
 }
 
-func (t *TestRun) WaitDaemonSetToBeUpToDate(ns, name string) error {
-	return wait.PollImmediate(APICallRetryInterval, Timeout, func() (bool, error) {
-		ds, getErr := t.GetDaemonset(ns, name)
-		if getErr != nil {
-			return false, fmt.Errorf("Failed to get latest version of Daemonset: %v", getErr)
-		}
-
-		// first check if pods are all updated
-		if ds.Status.DesiredNumberScheduled != ds.Status.UpdatedNumberScheduled {
-			return false, nil
-		}
-
-		// and check if they are ready after
-		if err := t.DaemonSetIsReady(ns, name); err != nil {
-			return false, nil
-		}
-
-		return true, nil
-	})
-}
-
-func (t *TestRun) GetKuredPodLogs() (err error) {
+// GetKuredPodLogs returns the logs of every kured pod in the TestRun CombinedOutput field
+func (t *TestRun) GetKuredPodsLogs() (err error) {
 	//ds, getErr := t.GetDaemonset(kuredDaemonset["namespace"], kuredDaemonset["name"])
 	_, getErr := t.GetDaemonset(kuredDaemonset["namespace"], kuredDaemonset["name"])
 	if getErr != nil {

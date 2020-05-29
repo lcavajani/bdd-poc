@@ -6,8 +6,8 @@ Feature: cilium-basic
     Then In namespace "kube-system" Deployment "cilium-operator" should be ready
 
     When I exec with kubectl in namespace "kube-system" in pod "ds/cilium" the command "cilium version"
-    Then the output contains "Client: 1.6.6"
-    And the output contains "Daemon: 1.6.6"
+    Then the output should contain "Client: 1.6.6"
+    And the output should contain "Daemon: 1.6.6"
 
   Scenario: no leftovers from a migration
     Given In namespace "kube-system" no pods with labels "k8s-app=cilium-pre-flight-check" exist
