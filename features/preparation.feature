@@ -5,5 +5,5 @@ Feature: Requirements
   Scenario: Prepare Management Workstation
     Given my workstation fulfill the requirements
     When I install the pattern "SUSE-CaaSP-Management" 
-    Then I have "skuba" in PATH
-    And I have "terraform" in PATH
+    Then I should have "skuba" in PATH
+    And I should have "terraform" in PATH

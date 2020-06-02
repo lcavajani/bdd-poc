@@ -4,8 +4,8 @@ Feature: cilium-network-policies
     And tblshoot must be ready
 
   Scenario: There are no network policies
-#    Given I delete all "CiliumNetworkPolicy" resources in "default" namespace
-#    Then there is no "CiliumNetworkPolicy" resource in "default" namespace
+    #Given I delete all "CiliumNetworkPolicy" resources in "default" namespace
+    #Then there is no "CiliumNetworkPolicy" resource in "default" namespace
     Given I run "kubectl delete cnp --all"
 
   Scenario: http traffic is allowed without network policy
@@ -30,13 +30,12 @@ Feature: cilium-network-policies
     Examples:
       | name            | ip        |
       | one.one.one.one | 1.1.1.1   |
-      | one.one.one.one | 1.0.0.1   |
       | dns.google      | 8.8.8.8   |
       | localhost       | 127.0.0.1 |
 
 
-  Scenario: Apply a default network policy to deny all traffic
-    Given I run "kubectl apply -f manifests/cilium/network-policy-deny-all.yaml"
+ Scenario: Apply a default network policy to deny all traffic
+   Given I run "kubectl apply -f manifests/cilium/network-policy-deny-all.yaml"
 
   Scenario: dns traffic is forbidden by the default network policy
     When I resolve "<name>" and fails
@@ -47,7 +46,6 @@ Feature: cilium-network-policies
     Examples:
       | name            | ip        |
       | one.one.one.one | 1.1.1.1   |
-      | one.one.one.one | 1.0.0.1   |
       | dns.google      | 8.8.8.8   |
       | localhost       | 127.0.0.1 |
 
@@ -64,20 +62,19 @@ Feature: cilium-network-policies
     Examples:
       | name            | ip        |
       | one.one.one.one | 1.1.1.1   |
-      | one.one.one.one | 1.0.0.1   |
       | dns.google      | 8.8.8.8   |
       | localhost       | 127.0.0.1 |
 
 
-  Scenario: http traffic is still not allowed by the default network policy
-    When I send "<method>" request to "<path>" and fails
-    Then the output should contain "<retcode>"
+ Scenario: http traffic is still not allowed by the default network policy
+   When I send "<method>" request to "<path>" and fails
+   Then the output should contain "<retcode>"
 
-    Examples:
-      | method | path                  | retcode |
-      | DELETE | /anything/allowed     | 000     |
-      | GET    | /anything/allowed     | 000     |
-      | PUT    | /anything/allowed     | 000     |
+   Examples:
+     | method | path                  | retcode |
+     | GET    | /anything/allowed     | 000     |
+     | DELETE | /anything/allowed     | 000     |
+     | PUT    | /anything/allowed     | 000     |
 
 
   Scenario: Apply network policy to allow http traffic at layer 3

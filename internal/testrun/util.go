@@ -42,7 +42,7 @@ func (t *TestRun) TheIsSetTo(variable, value string) error {
 	return nil
 }
 
-func (t *TestRun) TheRepositoryExist(repository string) error {
+func (t *TestRun) TheGitRepositoryExist(repository string) error {
 	return t.TheFileExist(path.Join(repository, ".git/"))
 }
 
@@ -85,36 +85,15 @@ func (t *TestRun) ShouldContain(output, substr string) error {
 		return errors.New(fmt.Sprintf("%v not recognized, choose between [output|stdout|stderr]", output))
 	}
 
+	logDebug("compare strings", fmt.Sprintf("Current: %v\nExpected: %v", str, substr))
 	if !strings.Contains(str, substr) {
-		//TODO: show output when debug enable, currently use to check output during dev
-		fmt.Println("Current:", str)
-		fmt.Println("Expected:", substr)
-		return errors.New(fmt.Sprintf("%v does not contain expected argument", output))
+		return logError(errors.New("string does not contain expected substring"),
+			"compare strings",
+			fmt.Sprintf("Current: %v\nExpected: %v", str, substr))
 	}
 
 	return nil
 }
-
-//TODO: all these are very redundant
-//func (t *TestRun) StderrContains(arg string) error {
-//	//TODO: show output when debug enable, currently use to check output during dev
-//	fmt.Println(string(t.StdErr))
-//
-//	if !strings.Contains(fmt.Sprintf("%s", string(t.StdErr)), arg) {
-//		return errors.New("stderr does not contain expected argument")
-//	}
-//	return nil
-//}
-
-//func (t *TestRun) TheOutputContains(arg string) error {
-//	//TODO: show output when debug enable, currently use to check output during dev
-//	fmt.Println(string(t.CombinedOutput))
-//
-//	if !strings.Contains(fmt.Sprintf("%s", string(t.CombinedOutput)), arg) {
-//		return errors.New("Output does not contain expected argument")
-//	}
-//	return nil
-//}
 
 func (t *TestRun) TheOutputContainsAnd(arg1, arg2 string) error {
 	if !strings.Contains(fmt.Sprintf("%s", string(t.CombinedOutput)), arg1) && strings.Contains(fmt.Sprintf("%s", string(t.CombinedOutput)), arg2) {
@@ -178,6 +157,8 @@ func WaitDuration(duration string) (err error) {
 	return nil
 }
 
+// Silent returns nil if it get an error as a parameter
+// and an error if the parameter is not nil
 func Silent(err error) error {
 	if err == nil {
 		return fmt.Errorf("command was supposed to fail")
@@ -186,6 +167,7 @@ func Silent(err error) error {
 	return nil
 }
 
+// concatByteSlices contats slices of []Byte into one
 func concatByteSlices(slices [][]byte) []byte {
 	var totalLen int
 	for _, f := range slices {
@@ -201,6 +183,7 @@ func concatByteSlices(slices [][]byte) []byte {
 	return tmp
 }
 
+// concatStringSlices contats slices of []string into one
 func concatStringSlices(slices [][]string) []string {
 	var totalLen int
 	for _, f := range slices {
@@ -216,7 +199,8 @@ func concatStringSlices(slices [][]string) []string {
 	return tmp
 }
 
-func deleteEmtptyInSlice(s *[]string) {
+// deleteEmtptyInStringSlice deletes empty slices from a string slice
+func deleteEmtptyInStringSlice(s *[]string) {
 	var tmp []string
 	for _, str := range *s {
 		if str != "" {

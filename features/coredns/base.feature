@@ -3,7 +3,7 @@ Feature: coredns-basic
     Given tblshoot must be ready
 
   Scenario: the 2 coredns pods are ready
-    Given In namespace "kube-system" Deployment "coredns" exists
+    Given In namespace "kube-system" Deployment "coredns" should exist
     Then In namespace "kube-system" Deployment "coredns" should be ready
     When I run "kubectl -n kube-system get deploy coredns -ojsonpath={.spec.replicas}"
     Then the output should contain "2"
@@ -49,7 +49,7 @@ Feature: coredns-basic
     When I run "kubectl get svc dnsutils-netcat -ojsonpath={.spec.clusterIP}"
     Then the output should contain a valid ip address
     When I resolve "dnsutils-netcat.default.svc.cluster.local"
-    Then the output shoud match the output the command "kubectl get po dnsutils -ojsonpath={.spec.clusterIP}"
+    Then the output shoud match the output the command "kubectl get svc dnsutils-netcat -ojsonpath={.spec.clusterIP}"
     When I reverse resolve "10.100.100.100"
     Then the output should contain "dnsutils-netcat.default.svc.cluster.local"
 

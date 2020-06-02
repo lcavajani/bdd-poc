@@ -1,4 +1,4 @@
 Feature: kured-basic
-  Scenario: cilium is properly deployed and working
-    Given In namespace "kube-system" DaemonSet "kured" exists
+  Scenario: kured is properly deployed and ready
+    Given In namespace "kube-system" DaemonSet "kured" should exist
     Then In namespace "kube-system" DaemonSet "kured" should be ready

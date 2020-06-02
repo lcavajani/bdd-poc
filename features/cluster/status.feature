@@ -4,7 +4,7 @@ Feature: Skuba cluster status
 
   Scenario: checkout cluster status
     Given there is "cluster" directory
-    And "skuba" exist in gopath
+    And "skuba" should exist in gopath
     When I run "skuba cluster status" in "cluster" directory
     Then the output should contain "master"
     And the output should contain "worker"

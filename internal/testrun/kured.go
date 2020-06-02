@@ -21,7 +21,7 @@ func (t *TestRun) SetKuredRebootSentinelPeriod(period string) error {
 	dsClient := t.ClientSet.AppsV1().DaemonSets(kuredDaemonset["namespace"])
 
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		ds, getErr := t.GetDaemonset(kuredDaemonset["namespace"], kuredDaemonset["name"])
+		ds, getErr := t.GetDaemonSet(kuredDaemonset["namespace"], kuredDaemonset["name"])
 		if getErr != nil {
 			return fmt.Errorf("Failed to get latest version of DaemonSet: %v", getErr)
 		}
@@ -51,7 +51,7 @@ func (t *TestRun) WaitKuredDaemonSetToBeUpToDate() error {
 // GetKuredPodLogs returns the logs of every kured pod in the TestRun CombinedOutput field
 func (t *TestRun) GetKuredPodsLogs() (err error) {
 	//ds, getErr := t.GetDaemonset(kuredDaemonset["namespace"], kuredDaemonset["name"])
-	_, getErr := t.GetDaemonset(kuredDaemonset["namespace"], kuredDaemonset["name"])
+	_, getErr := t.GetDaemonSet(kuredDaemonset["namespace"], kuredDaemonset["name"])
 	if getErr != nil {
 		return fmt.Errorf("Failed to get latest version of DaemonSet: %v", getErr)
 	}

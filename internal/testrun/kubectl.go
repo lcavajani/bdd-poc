@@ -1,14 +1,10 @@
 package testrun
 
 import (
-	"fmt"
 	"log"
 	"os/exec"
 	"strings"
-
 	//"k8s.io/apimachinery/pkg/api/errors"
-
-	"github.com/cucumber/godog"
 )
 
 var (
@@ -33,24 +29,25 @@ const (
 	defaultWaitCondition string = "condition=Ready"
 	defaultWaitTimeout   string = "300s"
 
+	//	httpbinManifestPath  string = "manifests/httpbin/httpbin-pod-svc.yaml"
+	//	httpbinManifestPath  string = "manifests/httpbin/httpbin-svc.yaml"
 	httpbinManifestPath  string = "manifests/httpbin/httpbin-pod.yaml"
 	tblshootManifestPath string = "manifests/tblshoot/tblshoot-pod.yaml"
 )
 
 type KubectlOptions struct {
 	//	Command       []string
+	AllNamespaces      bool   // -A
 	Namespace          string // -n default
 	Action             string // get
 	ResourceKind       string // pod
+	IsResourceManifest bool   // -f
 	Resource           string // httpbin, manifest url
 	Args               []string
-	AllNamespaces      bool // -A
-	IsResourceManifest bool // -f
 }
 
 type KubectlApplyOptions struct {
 	Prune bool
-	//	ManifestPath string
 }
 
 type KubectlWaitOptions struct {
@@ -61,9 +58,6 @@ type KubectlWaitOptions struct {
 type KubectlExecOptions struct {
 	Container string
 	Command   []string
-	//	Stdin         io.Reader
-	//	CaptureStdout bool
-	//	CaptureStderr bool
 }
 
 type KubectlPatchOptions struct {
@@ -102,14 +96,13 @@ func (t *TestRun) RunKubectl(options *KubectlOptions) ([]byte, error) {
 	}
 
 	fullCmd := concatStringSlices([][]string{defaultCmd, nsFlags, resourceFlags, options.Args})
-	//fullCmd := concatStringSlices([][]string{defaultCmd, nsFlags, options.Args})
-	deleteEmtptyInSlice(&fullCmd)
+	deleteEmtptyInStringSlice(&fullCmd)
 	cmd := exec.Command(fullCmd[0], fullCmd[1:]...)
 	combinedOutput, err := cmd.CombinedOutput()
 
+	logDebug("run kubectl", strings.Join(fullCmd, " "))
 	if err != nil {
-		fmt.Println(fullCmd)
-		return nil, fmt.Errorf("failed to run kubectl:%s\n%s", combinedOutput, err)
+		return nil, logError(err, "failed to run kubectl", strings.Join(fullCmd, " "))
 	}
 
 	return combinedOutput, err
@@ -124,7 +117,6 @@ func (t *TestRun) RunKubectlExecInPod(options *KubectlOptions, execOptions *Kube
 
 	options.Action = kubectlActions["exec"]
 	options.Args = concatStringSlices([][]string{
-		//	[]string{execOptions.Resource},
 		containerFlags,
 		[]string{"--"},
 		execOptions.Command,
@@ -205,9 +197,6 @@ func (t *TestRun) RunKubectlApplyAndWaitForReady(options *KubectlOptions, waitOp
 // IApplyManifest applies a manifest using kubectl.
 // It returns an error if applying failed.
 func (t *TestRun) IApplyManifest(manifestPath string) (err error) {
-	//	t.CombinedOutput, err = t.RunKubectlApply(
-	//		&KubectlOptions{IsResourceManifest: true, Resource: manifestPath},
-	//	)
 	t.CombinedOutput, err = t.RunKubectlApply(
 		&KubectlOptions{IsResourceManifest: true, Resource: manifestPath},
 		&KubectlApplyOptions{},
@@ -220,16 +209,10 @@ func (t *TestRun) IApplyManifest(manifestPath string) (err error) {
 // and wait for a specific condition.
 // It returns an error if applying failed.
 func (t *TestRun) IApplyManifestAndWaitForReady(manifestPath string) (err error) {
-	//	t.CombinedOutput, err = t.RunKubectlApplyAndWaitForReady(
-	//		&KubectlOptions{IsResourceManifest: true, Resource: manifestPath},
-	//		&KubectlWaitOptions{},
-	//	)
 	return t.RunKubectlApplyAndWaitForReady(
 		&KubectlOptions{IsResourceManifest: true, Resource: manifestPath},
 		&KubectlWaitOptions{},
 		&KubectlApplyOptions{},
-	//	&KubectlWaitOptions{},
-	//	&KubectlApplyOptions{ManifestPath: manifestPath},
 	)
 
 	return err
@@ -242,8 +225,6 @@ func (t *TestRun) HttpbinMustBeReady() error {
 		&KubectlOptions{IsResourceManifest: true, Resource: httpbinManifestPath},
 		&KubectlWaitOptions{},
 		&KubectlApplyOptions{},
-		//&KubectlWaitOptions{},
-		//&KubectlApplyOptions{ManifestPath: httpbinManifestPath},
 	)
 }
 
@@ -254,11 +235,5 @@ func (t *TestRun) TblshootMustBeReady() error {
 		&KubectlOptions{IsResourceManifest: true, Resource: tblshootManifestPath},
 		&KubectlWaitOptions{},
 		&KubectlApplyOptions{},
-		//&KubectlWaitOptions{},
-		//&KubectlApplyOptions{ManifestPath: tblshootManifestPath},
 	)
-}
-
-func (t *TestRun) ThereIsNoResourceInNamespace(rs, ns string) error {
-	return godog.ErrPending
 }

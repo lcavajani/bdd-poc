@@ -8,6 +8,7 @@ require (
 	//gopkg.in/src-d/go-git.v4 v4.13.1
 	github.com/go-git/go-git/v5 v5.0.0
 	github.com/pkg/errors v0.8.1
+	github.com/rs/zerolog v1.19.0
 	github.com/yuin/goldmark v1.1.30 // indirect
 	golang.org/x/crypto v0.0.0-20200302210943-78000ba7a073
 	golang.org/x/net v0.0.0-20200506145744-7e3656a0809f // indirect

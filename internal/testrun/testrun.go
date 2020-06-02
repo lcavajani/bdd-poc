@@ -17,12 +17,6 @@ type TestRun struct {
 	// Kubernetes
 	RestConfig *rest.Config
 	ClientSet  *kubernetes.Clientset
-
-	// SSH
-	//ClientSsh *ssh.Client
-	//	Resource   interface {
-	//		IsReady() error
-	//	}
 }
 
 //type NodeCheck struct {
